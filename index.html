@@ -71,6 +71,8 @@ form{padding:22px}form h3{margin:0 0 16px;font-size:19px}
 .f input[type=color]{padding:3px;height:48px}.f textarea{min-height:70px}
 .actions{display:flex;gap:10px}.actions button{flex:1;padding:14px;border-radius:16px;border:0;font-size:15px;font-weight:700}
 .c{background:var(--bg);color:var(--text)}.d{background:var(--out);color:#fff}.s{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff}
+.vs{display:grid;grid-template-columns:1fr 130px 1fr;align-items:center;gap:6px;padding:11px 0;border-bottom:1px solid var(--line);text-align:center}
+.vs:last-child{border:0}.vs .lb{font-size:12px;color:var(--muted);font-weight:700}.vs b{font-size:17px}.vs b.w{color:var(--in)}
 .sws{display:flex;flex-wrap:wrap;gap:8px}.sw input{display:none}
 .sw span,.fc{display:flex;align-items:center;gap:7px;padding:9px 12px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);color:var(--text);font:600 14px inherit;font-family:inherit;cursor:pointer}
 .sw input:checked+span,.fc.on{border-color:var(--a);background:rgba(99,102,241,.16)}
@@ -103,6 +105,7 @@ const WK=[{id:11,name:"Petto + Tricipiti",color:"#f43f5e",ex:sx(["Spinte con man
 {id:15,name:"Personalizzata",color:"#8b5cf6",ex:[]}];
 let S={workouts:[],log:{},items:[],outfit:{},tt:{1:[],2:[],3:[],4:[],5:[]},locDays:{0:"mamma",1:"mamma",2:"mamma",3:"mamma",4:"mamma",5:"papa",6:"papa"},over:{},tx:[],start:0};
 try{Object.assign(S,JSON.parse(localStorage.getItem(KEY))||{})}catch(e){}
+if(!S.games)S.games=[];
 if(!S.wv){S.workouts=WK;S.wv=1}
 S.workouts.forEach(w=>w.name=w.name.replace(/^Giorno \d+\s*[–-]\s*/,""));
 if(!S.ttv){S.tt=TT;S.ttv=1}
@@ -123,7 +126,7 @@ function ask(){const t=new Date(),g=[];
   const f=s=>s.split("-").reverse().slice(0,2).join("/");
   return g.map(x=>`<div class="card"><h2 class="t">🎉 ${x.n}</h2><p class="muted" style="margin:0 0 12px">${f(x.from)}${x.to!==x.from?" – "+f(x.to):""} · Dove starai?</p><div class="actions"><button class="c" data-a="hp" data-f="${x.from}" data-t="${x.to}" data-h="mamma">Mamma</button><button class="c" data-a="hp" data-f="${x.from}" data-t="${x.to}" data-h="papa">Papà</button><button class="c" data-a="pd" data-f="${x.from}" data-t="${x.to}">✎ Altro</button></div></div>`).join("")}
 const period=(a,b)=>M("Periodo speciale",`<p class="muted" style="margin-top:0">Scegli dove stai in un periodo (vacanze, eccezioni). Fuori da questi giorni vale la regola normale.</p><div class="f"><label>Dal</label><input type="date" name="a" required value="${a||iso(new Date())}"></div><div class="f"><label>Al</label><input type="date" name="b" required value="${b||a||iso(new Date())}"></div><div class="f"><label>Dove stai</label><select name="h"><option value="mamma">Mamma</option><option value="papa">Papà</option><option value="auto">Regola normale (cancella eccezione)</option></select></div>`,f=>setRange(f.a.value,f.b.value,f.h.value));
-const V=[["alle","🏋️","Allenamento"],["arm","👕","Armadio"],["ora","🎒","Orario"],["spe","💸","Spese"],["note","🔒","Note"]];
+const V=[["alle","🏋️","Allenamento"],["arm","👕","Armadio"],["ora","🎒","Orario"],["spe","💸","Spese"],["conta","🏆","Conteggio"],["note","🔒","Note"]];
 let view="alle",calMode="week",ref=new Date(),sm=new Date(),armF="tutti",armT="",armC="",armO=false,photo=null;
 const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
 
@@ -300,6 +303,46 @@ function dayDlg(k){
   M(lb,`<p class="muted" style="margin-top:0">Segna cosa hai fatto quel giorno.</p><div class="sws" style="flex-direction:column">${S.workouts.map(w=>`<label class="sw"><input type="checkbox" name="w" value="${w.id}" ${cur.includes(w.id)?"checked":""}><span style="width:100%"><i style="background:${w.color}"></i>${esc(w.name)}</span></label>`).join("")||'<div class="empty">Nessun allenamento creato.</div>'}</div><div style="height:16px"></div>`,
   ()=>{const ids=[...dlg.querySelectorAll('input[name=w]:checked')].map(x=>+x.value);if(ids.length)S.log[k]=ids;else delete S.log[k]});
 }
+// CONTEGGIO
+function stats(){
+  const g=S.games.slice().sort((x,y)=>x.date.localeCompare(y.date)||x.id-y.id);
+  const P=()=>({w:0,gf:0,gs:0,maxd:null,maxg:0,cur:0,best:0,gio:0}),A=P(),B=P(),days={};let d=0;
+  g.forEach(m=>{
+    A.gf+=m.a;A.gs+=m.b;B.gf+=m.b;B.gs+=m.a;A.maxg=Math.max(A.maxg,m.a);B.maxg=Math.max(B.maxg,m.b);
+    const D=days[m.date]||(days[m.date]={a:0,b:0});
+    if(m.a>m.b){A.w++;A.cur++;B.cur=0;D.a++;if(!A.maxd||m.a-m.b>A.maxd.d)A.maxd={d:m.a-m.b,s:m.a+"-"+m.b}}
+    else if(m.b>m.a){B.w++;B.cur++;A.cur=0;D.b++;if(!B.maxd||m.b-m.a>B.maxd.d)B.maxd={d:m.b-m.a,s:m.b+"-"+m.a}}
+    else{d++;A.cur=0;B.cur=0}
+    A.best=Math.max(A.best,A.cur);B.best=Math.max(B.best,B.cur);
+  });
+  for(const k in days){if(days[k].a>days[k].b)A.gio++;else if(days[k].b>days[k].a)B.gio++}
+  return{A,B,d,n:g.length,days};
+}
+function rConta(){
+  const st=stats(),{A,B}=st,t=iso(new Date()),T=st.days[t]||{a:0,b:0},has=S.games.some(m=>m.date===t);
+  const nm=(n,p)=>`${n}${p.cur>=2?` 🔥${p.cur}`:""}`;
+  const R=(l,na,nb,sa,sb)=>`<div class="vs"><b class="${na>nb?"w":""}">${sa??na}</b><span class="lb">${l}</span><b class="${nb>na?"w":""}">${sb??nb}</b></div>`;
+  const sg=n=>(n>0?"+":"")+n,av=p=>st.n?p.gf/st.n:0,rd=p=>p.maxd?p.maxd.d:0,rs=p=>p.maxd?`+${p.maxd.d} (${p.maxd.s})`:"–";
+  let h=`<div class="hero"><div class="l">Partite vinte</div><div class="row" style="margin-top:12px"><div class="pill" style="text-align:center"><span style="font-size:14px">${nm("Jacopo",A)}</span><b style="font-size:44px">${A.w}</b><span>${A.gio} giornat${A.gio===1?"a":"e"}</span></div><div class="pill" style="text-align:center"><span style="font-size:14px">${nm("Papà",B)}</span><b style="font-size:44px">${B.w}</b><span>${B.gio} giornat${B.gio===1?"a":"e"}</span></div></div>
+  <div style="margin-top:12px;font-size:13px;opacity:.92;text-align:center">Pareggi: ${st.d}${has?` · Oggi ${T.a}–${T.b} → ${T.a>T.b?"giornata a Jacopo":T.b>T.a?"giornata a Papà":"giornata pari"}`:""}</div></div>
+  <button class="pri" data-a="eg">＋ Nuova partita</button>`;
+  h+=`<div class="card"><h2 class="t">Statistiche</h2><div class="vs" style="border-bottom:2px solid var(--line)"><b>Jacopo</b><span class="lb"></span><b>Papà</b></div>`+
+  R("Giornate vinte",A.gio,B.gio)+R("Partite vinte",A.w,B.w)+R("Gol segnati",A.gf,B.gf)+R("Media gol a partita",av(A),av(B),av(A).toFixed(2),av(B).toFixed(2))+
+  R("Differenza reti",A.gf-A.gs,B.gf-B.gs,sg(A.gf-A.gs),sg(B.gf-B.gs))+R("Record differenza reti",rd(A),rd(B),rs(A),rs(B))+R("Più gol in una partita",A.maxg,B.maxg)+
+  R("Streak attuale",A.cur,B.cur,A.cur+(A.cur>=2?" 🔥":""),B.cur+(B.cur>=2?" 🔥":""))+R("Record streak",A.best,B.best)+`</div>`;
+  const g=S.games.slice().sort((x,y)=>y.date.localeCompare(x.date)||y.id-x.id);let last="";
+  h+=`<div class="card"><h2 class="t">Partite</h2>`+(g.length?g.map(m=>{
+    let o="";if(m.date!==last){last=m.date;const[y,mo,d]=m.date.split("-").map(Number),D=st.days[m.date];
+      o=`<div class="muted" style="margin:12px 0 2px;font-weight:700;text-transform:capitalize">${new Date(y,mo-1,d).toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"})} · ${D.a>D.b?"giornata a Jacopo":D.b>D.a?"giornata a Papà":"giornata pari"}</div>`}
+    return o+`<div class="item" data-a="eg" data-id="${m.id}" style="cursor:pointer"><div class="m"><b>Jacopo ${m.a} – ${m.b} Papà</b></div><span class="muted">✎</span></div>`}).join(""):`<div class="empty">Nessuna partita. Premi “Nuova partita”.</div>`)+`</div>`;
+  return h;
+}
+function gameDlg(id){
+  const m=S.games.find(x=>x.id==id)||null;
+  M(m?"Modifica partita":"Nuova partita",`<div class="f"><label>Data</label><input name="d" type="date" required value="${m?m.date:iso(new Date())}"></div><div class="row"><div class="f" style="flex:1"><label>Gol Jacopo</label><input name="a" type="number" inputmode="numeric" min="0" step="1" required value="${m?m.a:""}" style="text-align:center;font-size:28px;font-weight:800"></div><div class="f" style="flex:1"><label>Gol Papà</label><input name="b" type="number" inputmode="numeric" min="0" step="1" required value="${m?m.b:""}" style="text-align:center;font-size:28px;font-weight:800"></div></div>`,
+  f=>{const o={date:f.d.value,a:Math.max(0,parseInt(f.a.value)||0),b:Math.max(0,parseInt(f.b.value)||0)};if(m)Object.assign(m,o);else S.games.push({id:Date.now(),...o})},
+  m?()=>{S.games=S.games.filter(x=>x.id!=id)}:null);
+}
 // events
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,id=b.dataset.id;
@@ -327,12 +370,13 @@ document.addEventListener("click",e=>{
   else if(a==="nl"){lockN();render()}
   else if(a==="np")M("Cambia PIN",`<div class="f"><label>Nuovo PIN (4–8 cifre)</label><input name="p" type="password" inputmode="numeric" minlength="4" maxlength="8" required></div>`,f=>{const salt=crypto.getRandomValues(new Uint8Array(16));derive(f.p.value,salt).then(k=>{N.key=k;N.salt=salt;return saveN()})});
   else if(a==="en")noteDlg(id);
+  else if(a==="eg")gameDlg(id);
   else if(a==="at")addTx();
   else if(a==="sn"){sm=new Date(sm.getFullYear(),sm.getMonth()+ +b.dataset.n,1);render()}
   else if(a==="dt")C("Eliminare questo movimento?",()=>{S.tx=S.tx.filter(t=>t.id!=id)});
   else if(a==="st")M("Soldi di partenza",`<div class="f"><label>Quanto hai adesso (€)</label><input name="v" type="number" step="0.01" required value="${S.start||""}"></div>`,f=>S.start=Math.round(parseFloat(f.v.value)*100)/100||0);
 });
-function render(){menu();$("main").innerHTML={alle:rAlle,arm:rArm,ora:rOra,spe:rSpe,note:rNote}[view]()}
+function render(){menu();$("main").innerHTML={alle:rAlle,arm:rArm,ora:rOra,spe:rSpe,note:rNote,conta:rConta}[view]()}
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id&&e.target.id.startsWith("pin")){const b=document.querySelector('[data-a="nu"],[data-a="ns"]');if(b)b.click()}});
 document.addEventListener("visibilitychange",()=>{if(document.hidden&&N.key){lockN();if(view==="note")render()}});
 render();
